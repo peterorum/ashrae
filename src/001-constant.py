@@ -1,4 +1,4 @@
-# baseline: constant price 200000
+# baseline: constant 0
 # kaggle score 0.46217
 
 import sys  # pylint: disable=unused-import
@@ -11,7 +11,7 @@ import os
 
 is_kaggle = os.environ['HOME'] == '/tmp'
 
-zipext = ''  # if is_kaggle else '.zip'
+zipext = '' if is_kaggle else '.zip'
 
 # load data
 train = pd.read_csv(f'../input/train.csv{zipext}')
@@ -21,21 +21,21 @@ test = pd.read_csv(f'../input/test.csv{zipext}')
 
 start_time = time()
 
-target = 'SalePrice'
+target = 'meter_reading'
 
-result = 200000
+result = 0
 
-train['predicted'] = result
+# train['predicted'] = result
 
-score = np.sqrt(mean_squared_error(train[target], train.predicted))
-print('score', score)
+# score = np.sqrt(mean_squared_error(train[target], train.predicted))
+# print('score', score)
 
 test[target] = result
 
 # print(test.head())
 # print(test.describe())
 
-predictions = test[['Id', target]]
+predictions = test[['row_id', target]]
 
 predictions.to_csv('submission.csv', index=False)
 
