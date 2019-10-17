@@ -1,5 +1,6 @@
 # baseline: constant 0
-# kaggle score 0.46217
+# local score 4.668
+# kaggle score 4.69
 
 import sys  # pylint: disable=unused-import
 import numpy as np
@@ -25,15 +26,13 @@ target = 'meter_reading'
 
 result = 0
 
-# train['predicted'] = result
+train['predicted'] = result
 
-# score = np.sqrt(mean_squared_error(train[target], train.predicted))
-# print('score', score)
+score = np.sqrt(mean_squared_error(np.log1p(train[target]), np.log1p(train.predicted)))
+
+print('score', score)
 
 test[target] = result
-
-# print(test.head())
-# print(test.describe())
 
 predictions = test[['row_id', target]]
 
