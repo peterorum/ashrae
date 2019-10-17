@@ -28,9 +28,13 @@ warnings.simplefilter(action='ignore')
 start_time = time()
 
 # Read the data
-# train = pd.read_csv(f'../input/ashrae-energy-prediction/sample.csv')
-train = pd.read_csv(f'../input/ashrae-energy-prediction/train.csv{zipext}')
-test = pd.read_csv(f'../input/ashrae-energy-prediction/test.csv{zipext}')
+
+if is_kaggle:
+	train = pd.read_csv(f'../input/ashrae-energy-prediction/train.csv{zipext}')
+	test = pd.read_csv(f'../input/ashrae-energy-prediction/test.csv{zipext}')
+else:
+	train = pd.read_csv(f'../input/ashrae-energy-prediction/sample-train.csv')
+	test = pd.read_csv(f'../input/ashrae-energy-prediction/sample-test.csv')
 
 building_meta_data = pd.read_csv(f'../input/ashrae-energy-prediction/building_metadata.csv')
 
@@ -54,7 +58,7 @@ X_test = test[numeric_features].copy()
 X_train, X_valid, y_train, y_valid = train_test_split(X, y, train_size=0.8, test_size=0.2,
                                                       random_state=0)
 
-my_model = XGBRegressor(random_state=0)
+my_model = XGBRegressor(objective ='reg:squarederror', random_state=0)
 
 # Fit the model to the training data & validate for score
 my_model.fit(X_train, y_train)

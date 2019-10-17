@@ -2,10 +2,10 @@
 
 import pandas as pd
 
-train = pd.read_csv("../input/train.csv.zip")
+test = pd.read_csv("../input/ashrae-energy-prediction/test.csv.zip")
 
 sample_size = 10000
 
-sample = train.sample(sample_size)
+sample = test.sample(sample_size)
 
-sample.to_csv('../input/sample.csv', index=False)
+sample.to_csv('../input/test-sample.csv', index=False)
