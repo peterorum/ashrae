@@ -1,5 +1,5 @@
 # train/test split
-# local score 
+# local score 3.6
 # kaggle score
 # minimize score
 
