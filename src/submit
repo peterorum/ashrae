@@ -9,4 +9,5 @@ zip -r submission.csv.zip submission.csv
 
 kaggle competitions submit -c ashrae-energy-prediction -f submission.csv  -m "$1"
 
+rm submission.csv
 rm submission.csv.zip
