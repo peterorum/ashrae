@@ -26,58 +26,103 @@ pd.set_option('display.max_columns', None)
 warnings.simplefilter(action='ignore')
 
 start_time = time()
+last_time = time()
 
-# Read the data
 
-if is_kaggle:
-	train = pd.read_csv(f'../input/ashrae-energy-prediction/train.csv{zipext}')
-	test = pd.read_csv(f'../input/ashrae-energy-prediction/test.csv{zipext}')
-else:
-	train = pd.read_csv(f'../input/ashrae-energy-prediction/sample-train.csv')
-	test = pd.read_csv(f'../input/ashrae-energy-prediction/sample-test.csv')
+def timer():
+    global last_time
 
-building_meta_data = pd.read_csv(f'../input/ashrae-energy-prediction/building_metadata.csv')
+    print(f'{((time() - last_time) / 60):.1f}, {((time() - start_time) / 60):.1f} mins\n')  # noqa
 
-# match join on building_id
+    last_time = time()
 
-train = train.merge(building_meta_data, left_on = "building_id", right_on = "building_id", how = "left")
-test = test.merge(building_meta_data, left_on = "building_id", right_on = "building_id", how = "left")
+# run the model
 
-# Obtain target and predictors
 
-target = 'meter_reading'
+def evaluate(train, test, unique_id, target):
 
-y = train[target]
+    print('evaluate')
 
-numeric_features=[ 'meter', 'site_id', 'square_feet']
+    model = XGBRegressor(objective ='reg:squarederror', random_state=0)
 
-X = train[numeric_features].copy()
-X_test = test[numeric_features].copy()
+    train_inputs = train.drop([unique_id, target], axis=1)
 
-# Break off validation set from training data
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, train_size=0.8, test_size=0.2,
-                                                      random_state=0)
+    x_train, x_validate, y_train, y_validate = train_test_split(
+        train_inputs, train[target], test_size=0.2, random_state=1)
 
-my_model = XGBRegressor(objective ='reg:squarederror', random_state=0)
+    model.fit(x_train, y_train)
 
-# Fit the model to the training data & validate for score
-my_model.fit(X_train, y_train)
-preds_valid = my_model.predict(X_valid)
-preds_valid = [ max(0, x) for x in preds_valid]
+    train_predictions = model.predict(x_validate)
 
-score = np.sqrt(mean_squared_error(np.log1p(y_valid), np.log1p(preds_valid)))
+    train_predictions = [ max(0, x) for x in train_predictions]
 
-print(f'score: {score}')
+    train_score = np.sqrt(mean_squared_error(np.log1p(train_predictions), np.log1p(y_validate)))
 
-# Generate test predictions on full set
-my_model.fit(X, y)
+    test_predictions = model.predict(test[x_train.columns])
 
-preds_test = my_model.predict(X_test)
+    test_predictions = [ max(0, x) for x in test_predictions]
 
-# Save predictions in format used for competition scoring
-output = pd.DataFrame({'row_id': X_test.index,
-                       target: preds_test})
+    timer()
 
-output.to_csv('submission.csv', index=False)
+    return test_predictions, train_score
 
-print('%.0f mins' % ((time() - start_time) / 60))
+
+# --------------------- run
+
+
+def run():
+
+    # read the data
+
+    if is_kaggle:
+        train = pd.read_csv(
+            '../input/ashrae-energy-prediction/train.csv{zipext}')
+        test = pd.read_csv(
+            '../input/ashrae-energy-prediction/test.csv{zipext}')
+    else:
+        train = pd.read_csv(
+            '../input/ashrae-energy-prediction/sample-train.csv')
+        test = pd.read_csv('../input/ashrae-energy-prediction/sample-test.csv')
+
+    building_meta_data = pd.read_csv(
+        '../input/ashrae-energy-prediction/building_metadata.csv')
+
+    # match join on building_id
+
+    train = train.merge(building_meta_data, left_on="building_id",
+                        right_on="building_id", how="left")
+
+    test = test.merge(building_meta_data, left_on="building_id",
+                      right_on="building_id", how="left")
+
+    original_columns = train.columns.tolist()
+
+    # obtain target and predictors
+
+    target = 'meter_reading'
+    unique_id = 'building_id'
+
+    y = train[target]
+
+    # numeric features
+    features = ['meter', 'site_id', 'square_feet']
+
+    X = train[features + [target, unique_id]].copy()
+    X_test = test[features + [unique_id]].copy()
+
+    test_predictions, train_score = evaluate(X, X_test, unique_id, target)
+
+    print('score', train_score)
+
+    # save predictions in format used for competition scoring
+    output = pd.DataFrame({'row_id': X_test.index,
+                           target: test_predictions})
+
+    output.to_csv('submission.csv', index=False)
+
+# -------- main
+
+
+run()
+
+print(f'Finished {((time() - start_time) / 60):.1f} mins\a')
