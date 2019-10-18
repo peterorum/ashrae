@@ -3,19 +3,20 @@
 # kaggle score 3.06
 # minimize score
 
-import pandas as pd
-import numpy as np
 import os
 import sys
 from pprint import pprint  # noqa
 import warnings
+from time import time
+
+import pandas as pd
+import numpy as np
 
 
 from sklearn.model_selection import train_test_split
-from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error
+from xgboost import XGBRegressor
 
-from time import time
 
 is_kaggle = os.environ['HOME'] == '/tmp'
 zipext = '' if is_kaggle else '.zip'
@@ -43,7 +44,7 @@ def evaluate(train, test, unique_id, target):
 
     print('evaluate')
 
-    model = XGBRegressor(objective ='reg:squarederror', random_state=0)
+    model = XGBRegressor(objective='reg:squarederror', random_state=0)
 
     train_inputs = train.drop([unique_id, target], axis=1)
 
@@ -54,17 +55,43 @@ def evaluate(train, test, unique_id, target):
 
     train_predictions = model.predict(x_validate)
 
-    train_predictions = [ max(0, x) for x in train_predictions]
+    train_predictions = [max(0, x) for x in train_predictions]
 
-    train_score = np.sqrt(mean_squared_error(np.log1p(train_predictions), np.log1p(y_validate)))
+    train_score = np.sqrt(mean_squared_error(
+        np.log1p(train_predictions), np.log1p(y_validate)))
 
     test_predictions = model.predict(test[x_train.columns])
 
-    test_predictions = [ max(0, x) for x in test_predictions]
+    test_predictions = [max(0, x) for x in test_predictions]
 
     timer()
 
     return test_predictions, train_score
+
+
+# clear empty values that should not get a mean
+# may be run twice for numeric values (0) then categorical ('NA')
+
+
+def clear_missing_values(train, test, columns, value):
+
+    for col in columns:
+        train[col] = train[col].fillna(value)
+        test[col] = test[col].fillna(value)
+
+    return train, test
+
+
+# convert numeric columns which are actually just categories to string
+
+
+def convert_numeric_categories(train, test, columns):
+
+    for col in columns:
+        train[col] = train[col].apply(str)
+        test[col] = test[col].apply(str)
+
+    return train, test
 
 
 # --------------------- run
@@ -76,9 +103,9 @@ def run():
 
     if is_kaggle:
         train = pd.read_csv(
-            '../input/ashrae-energy-prediction/train.csv{zipext}')
+            f'../input/ashrae-energy-prediction/train.csv{zipext}')
         test = pd.read_csv(
-            '../input/ashrae-energy-prediction/test.csv{zipext}')
+            f'../input/ashrae-energy-prediction/test.csv{zipext}')
     else:
         train = pd.read_csv(
             '../input/ashrae-energy-prediction/sample-train.csv')
@@ -95,27 +122,27 @@ def run():
     test = test.merge(building_meta_data, left_on="building_id",
                       right_on="building_id", how="left")
 
-    original_columns = train.columns.tolist()
-
     # obtain target and predictors
 
     target = 'meter_reading'
     unique_id = 'building_id'
 
-    y = train[target]
-
     # numeric features
-    features = ['meter', 'site_id', 'square_feet']
+    features = ['meter', 'square_feet']
 
-    X = train[features + [target, unique_id]].copy()
-    X_test = test[features + [unique_id]].copy()
+    train = train[features + [target, unique_id]].copy()
+    test = test[features + [unique_id]].copy()
 
-    test_predictions, train_score = evaluate(X, X_test, unique_id, target)
+    # train, test = clear_missing_values(train, test, ['year_built'], 0)
+
+    # train, test = convert_numeric_categories(train, test, ['site_id'])
+
+    test_predictions, train_score = evaluate(train, test, unique_id, target)
 
     print('score', train_score)
 
     # save predictions in format used for competition scoring
-    output = pd.DataFrame({'row_id': X_test.index,
+    output = pd.DataFrame({'row_id': test.index,
                            target: test_predictions})
 
     output.to_csv('submission.csv', index=False)
