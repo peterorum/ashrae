@@ -5,7 +5,7 @@
 
 import os
 import sys
-from pprint import pprint  # noqa
+from pprint import pprint  # pylint: disable=unused-import
 import warnings
 from time import time
 
