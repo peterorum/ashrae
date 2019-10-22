@@ -15,6 +15,7 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBRegressor
 
 
@@ -94,6 +95,76 @@ def convert_numeric_categories(train, test, columns):
     return train, test
 
 
+# --- categoric data
+
+
+def encode_categoric_data(train, test, unique_id, target):
+
+    print('encode_categoric_data')
+
+    train_targets = train[target]
+
+    categoric_cols = [col for col in train.columns if train[col].dtype == 'object']
+
+    if unique_id in categoric_cols:
+        categoric_cols.remove(unique_id)
+
+    # drop if too many values - usually a unique id column
+
+    max_categories = train.shape[0] * 0.5
+
+    too_many_value_categoric_cols = [col for col in categoric_cols
+                                     if train[col].nunique() >= max_categories]
+
+    if len(too_many_value_categoric_cols) > 0:
+        print('dropping as too many categoric values', too_many_value_categoric_cols)
+
+    categoric_cols = [i for i in categoric_cols if i not in too_many_value_categoric_cols]
+
+    train = train.drop(too_many_value_categoric_cols, axis=1)
+    test.drop([col for col in too_many_value_categoric_cols
+               if col in test.columns], axis=1, inplace=True)
+
+    # one-hot encode if not too many values
+
+    max_ohe_categories = 15
+
+    ohe_categoric_cols = [col for col in categoric_cols
+                          if train[col].nunique() <= max_ohe_categories]
+
+    categoric_cols = [i for i in categoric_cols if i not in ohe_categoric_cols]
+
+    if len(ohe_categoric_cols) > 0:
+        # print('one-hot encode', ohe_categoric_cols)
+
+        # one-hot encode & align to have same columns
+        train = pd.get_dummies(train, columns=ohe_categoric_cols)
+        test = pd.get_dummies(test, columns=ohe_categoric_cols)
+        train, test = train.align(test, join='inner', axis=1)
+
+        # restore after align
+        train[target] = train_targets
+
+    # possibly rank encode rather than ohe. see gstore.
+
+    # label encode the remainder (convert to integer)
+
+    label_encode_categoric_cols = categoric_cols
+
+    # print('label encode', label_encode_categoric_cols)
+
+    for col in label_encode_categoric_cols:
+        lbl = LabelEncoder()
+        lbl.fit(list(train[col].values.astype('str')) + list(test[col].values.astype('str')))
+        train[col] = lbl.transform(list(train[col].values.astype('str')))
+        test[col] = lbl.transform(list(test[col].values.astype('str')))
+
+    timer()
+
+    return train, test
+
+
+
 # --------------------- run
 
 
@@ -127,15 +198,20 @@ def run():
     target = 'meter_reading'
     unique_id = 'building_id'
 
-    # numeric features
-    features = ['meter', 'square_feet']
 
-    train = train[features + [target, unique_id]].copy()
-    test = test[features + [unique_id]].copy()
+    # # numeric features
+    # features = ['meter', 'square_feet']
+
+    # train = train[features + [target, unique_id]].copy()
+    # test = test[features + [unique_id]].copy()
 
     # train, test = clear_missing_values(train, test, ['year_built'], 0)
 
     # train, test = convert_numeric_categories(train, test, ['site_id'])
+
+    # train, test = replace_missing_values(train, test, unique_id, target)
+
+    train, test = encode_categoric_data(train, test, unique_id, target)
 
     test_predictions, train_score = evaluate(train, test, unique_id, target)
 
