@@ -248,15 +248,9 @@ def run():
     train = train.drop('timestamp', axis=1)
     test = test.drop('timestamp', axis=1)
 
-    # # numeric features
-    # features = ['meter', 'square_feet']
+    train, test = clear_missing_values(train, test, ['year_built'], 0)
 
-    # train = train[features + [target, unique_id]].copy()
-    # test = test[features + [unique_id]].copy()
-
-    # train, test = clear_missing_values(train, test, ['year_built'], 0)
-
-    # train, test = convert_numeric_categories(train, test, ['site_id'])
+    train, test = convert_numeric_categories(train, test, ['site_id'])
 
     # train, test = replace_missing_values(train, test, unique_id, target)
 
