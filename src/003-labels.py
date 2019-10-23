@@ -104,7 +104,8 @@ def encode_categoric_data(train, test, unique_id, target):
 
     train_targets = train[target]
 
-    categoric_cols = [col for col in train.columns if train[col].dtype == 'object']
+    categoric_cols = [
+        col for col in train.columns if train[col].dtype == 'object']
 
     if unique_id in categoric_cols:
         categoric_cols.remove(unique_id)
@@ -117,9 +118,11 @@ def encode_categoric_data(train, test, unique_id, target):
                                      if train[col].nunique() >= max_categories]
 
     if too_many_value_categoric_cols:
-        print('dropping as too many categoric values', too_many_value_categoric_cols)
+        print('dropping as too many categoric values',
+              too_many_value_categoric_cols)
 
-    categoric_cols = [i for i in categoric_cols if i not in too_many_value_categoric_cols]
+    categoric_cols = [
+        i for i in categoric_cols if i not in too_many_value_categoric_cols]
 
     train = train.drop(too_many_value_categoric_cols, axis=1)
     test.drop([col for col in too_many_value_categoric_cols
@@ -156,78 +159,54 @@ def encode_categoric_data(train, test, unique_id, target):
 
         for col in label_encode_categoric_cols:
             lbl = LabelEncoder()
-            lbl.fit(list(train[col].values) + list(test[col].values))
-            train[col] = lbl.transform(list(train[col].values))
-            test[col] = lbl.transform(list(test[col].values))
+            # lbl.fit(list(train[col].values) + list(test[col].values))
+            # train[col] = lbl.transform(list(train[col].values))
+            # test[col] = lbl.transform(list(test[col].values))
+
+            # lbl.fit(list(train[col].astype(str)) + list(test[col].astype(str)))
+            # train[col] = lbl.transform(list(train[col].astype(str))).astype(np.int8)
+            # test[col] = lbl.transform(list(test[col].astype(str))).astype(np.int8)
+
+            train[col] = lbl.fit_transform(train[col].astype(str)).astype(np.int8)
+            test[col] = lbl.fit_transform(test[col].astype(str)).astype(np.int8)
 
     timer()
 
     return train, test
 
-# Based on https://www.kaggle.com/arjanso/reducing-dataframe-memory-size-by-65
-
 
 def reduce_mem_usage(df):
-    start_mem_usg = df.memory_usage().sum() / 1024**2
-
-    NAlist = []  # Keeps track of columns that have missing values filled in.
+    numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+    start_mem = df.memory_usage().sum() / 1024**2
 
     for col in df.columns:
-        if df[col].dtype != object:  # Exclude strings
-
-            previous_type = df[col].dtype # pylint: disable=unused-variable
-
-            # make variables for Int, max and min
-            IsInt = False
-            mx = df[col].max()
-            mn = df[col].min()
-
-            # Integer does not support NA, therefore, NA needs to be filled
-            if not np.isfinite(df[col]).all():
-                NAlist.append(col)
-                df[col].fillna(mn - 1, inplace=True)
-
-            # test if column can be converted to an integer
-            asint = df[col].fillna(0).astype(np.int64)
-            result = (df[col] - asint)
-            result = result.sum()
-            
-            if result > -0.01 and result < 0.01:
-                IsInt = True
-
-            # Make Integer/unsigned Integer datatypes
-            if IsInt:
-                if mn >= 0:
-                    if mx < 255:
-                        df[col] = df[col].astype(np.uint8)
-                    elif mx < 65535:
-                        df[col] = df[col].astype(np.uint16)
-                    elif mx < 4294967295:
-                        df[col] = df[col].astype(np.uint32)
-                    else:
-                        df[col] = df[col].astype(np.uint64)
-                else:
-                    if mn > np.iinfo(np.int8).min and mx < np.iinfo(np.int8).max:
-                        df[col] = df[col].astype(np.int8)
-                    elif mn > np.iinfo(np.int16).min and mx < np.iinfo(np.int16).max:
-                        df[col] = df[col].astype(np.int16)
-                    elif mn > np.iinfo(np.int32).min and mx < np.iinfo(np.int32).max:
-                        df[col] = df[col].astype(np.int32)
-                    elif mn > np.iinfo(np.int64).min and mx < np.iinfo(np.int64).max:
-                        df[col] = df[col].astype(np.int64)
-
-            # Make float datatypes 32 bit
+        col_type = df[col].dtypes
+        if col_type in numerics:
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)
             else:
-                df[col] = df[col].astype(np.float32)
+                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                    df[col] = df[col].astype(np.float16)
+                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
 
-            # print(f"{col} before: {previous_type}, after: {df[col].dtype}")
+    end_mem = df.memory_usage().sum() / 1024**2
 
-    mem_usg = df.memory_usage().sum() / 1024**2
+    print('mem usage decreased to {:5.2f} Mb ({:.1f}% reduction)'.format(
+        end_mem, 100 * (start_mem - end_mem) / start_mem))
 
-    print(f"Memory usage is: {mem_usg}MB, {100 * mem_usg / start_mem_usg:.1f}% of the initial size")
-
-    return df, NAlist
-
+    return df
 
 # --------------------- run
 
@@ -257,8 +236,8 @@ def run():
     test = test.merge(building_meta_data, left_on="building_id",
                       right_on="building_id", how="left")
 
-    train, _ = reduce_mem_usage(train)
-    test, _ = reduce_mem_usage(test)
+    train = reduce_mem_usage(train)
+    test = reduce_mem_usage(test)
 
     # obtain target and predictors
 
