@@ -1,6 +1,6 @@
 # train/test split
 # local score 2.955
-# kaggle score 4.10 (worse)
+# kaggle score 3.62
 # minimize score
 
 import os

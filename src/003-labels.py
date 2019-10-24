@@ -1,5 +1,5 @@
 # train/test split
-# local score 2.955
+# local score 2.35
 # kaggle score 4.10 (worse)
 # minimize score
 
@@ -249,10 +249,10 @@ def run():
     test = test.drop('timestamp', axis=1)
 
     # # numeric features
-    # features = ['meter', 'square_feet']
+    features = ['meter', 'square_feet']
 
-    # train = train[features + [target, unique_id]].copy()
-    # test = test[features + [unique_id]].copy()
+    train = train[features + [target, unique_id]].copy()
+    test = test[features + [unique_id]].copy()
 
     # train, test = clear_missing_values(train, test, ['year_built'], 0)
 
@@ -260,7 +260,7 @@ def run():
 
     # train, test = replace_missing_values(train, test, unique_id, target)
 
-    train, test = encode_categoric_data(train, test, unique_id, target)
+    # train, test = encode_categoric_data(train, test, unique_id, target)
 
     test_predictions, train_score = evaluate(train, test, unique_id, target)
 
